@@ -226,6 +226,73 @@ async def main():
         check(expired["modes"][-1]["sessionId"] == prompt["sessionId"],
               "expiry replacement preserves configured ACP mode")
 
+        # Attachment preparation can cross expiration after Session load. Test
+        # both before context-block construction and after it has already been
+        # materialized, as an actual stdio prompt rather than a helper result.
+        from agent_connect.adapters import acp as acp_module
+        real_blocks = acp_module.prompt_blocks
+        from ag2_relay_client.media import Attachment as RelayAttachment
+        import base64
+        attachment_data = b"PREPARED_ATTACHMENT_SENTINEL"
+        attachment_path = tmp / "prepared-context-attachment.txt"
+        attachment_path.write_bytes(attachment_data)
+        for phase in ("before", "after"):
+            seed = wire("preparation-seed-" + phase)
+            script_data = json.loads(script.read_text())
+            script_data["sessionPrefix"] = "seed-" + phase
+            script.write_text(json.dumps(script_data))
+            seed_report = tmp / ("preparation-seed-" + phase + ".json")
+            os.environ["FAKE_ACP_REPORT"] = str(seed_report)
+            try: await handle_one(parsed(seed), adapter(), str(tmp))
+            finally: os.environ.pop("FAKE_ACP_REPORT", None)
+            followup = wire("preparation-expiry-" + phase)
+            clock = followup["room_context"]["observed_at"]
+            expires = followup["room_context"]["expires_at"]
+            def controlled(self, **kwargs):
+                return original_current(self, **dict(kwargs, now=clock))
+            def prepare(*args, **kwargs):
+                nonlocal clock
+                if phase == "before": clock = expires + 1
+                prepared = real_blocks(*args, **kwargs)
+                if phase == "after":
+                    clock = expires + 1
+                    attachment_path.unlink()  # prepared bytes must not be reopened
+                return prepared
+            script_data["sessionPrefix"] = "replacement-" + phase
+            script.write_text(json.dumps(script_data))
+            followup_task = parsed(followup)
+            if phase == "after":
+                followup_task.attachments = (RelayAttachment(
+                    path=str(attachment_path), mime="text/plain", name=attachment_path.name,
+                    size=len(attachment_data), ok=True),)
+            report = tmp / ("preparation-expiry-" + phase + ".json")
+            os.environ["FAKE_ACP_REPORT"] = str(report)
+            try:
+                with patch.object(RoomContext, "current", controlled), patch.object(acp_module, "prompt_blocks", prepare):
+                    await handle_one(followup_task, AcpAdapter(
+                        command=[sys.executable, str(_bootstrap.ROOT / "tests/fake_acp_agent.py"), str(script)],
+                        mode="fixture-mode", store=SessionStore(store)), str(tmp))
+            finally:
+                os.environ.pop("FAKE_ACP_REPORT", None)
+            prepared_report = json.loads(report.read_text())
+            prepared_prompt = prepared_report["prompts"][0]
+            loaded = [entry["sessionId"] for entry in prepared_report["sessions"] if entry["method"] == "session/load"]
+            check(bool(loaded) and prepared_prompt["sessionId"] not in loaded,
+                  "expiry " + phase + " block construction cannot prompt the loaded Session")
+            check(len(prepared_prompt["prompt"]) == (2 if phase == "after" else 1)
+                  and "README_SENTINEL" not in prepared_prompt["prompt"][0]["text"]
+                  and prepared_prompt["prompt"][0]["text"].endswith(followup["task"]),
+                  "expiry " + phase + " block construction removes cached context and preserves ask")
+            check(prepared_report["modes"][-1]["sessionId"] == prepared_prompt["sessionId"],
+                  "expiry " + phase + " block construction preserves replacement mode")
+            check(not json.loads(store.read_text())["room_context_sessions"]
+                  or all(entry["room_context_scope"] != parsed(seed).room_context.scope
+                         for entry in json.loads(store.read_text())["room_context_sessions"]),
+                  "expiry " + phase + " block construction forgets persistent context Session")
+            if phase == "after":
+                check(base64.b64decode(prepared_prompt["prompt"][1]["resource"]["blob"]) == attachment_data,
+                      "expiry after preparation preserves already-read attachment bytes")
+
 asyncio.run(main())
 print("\n" + ("PASS — room context" if not fails else f"FAIL — {fails} assertions"))
 raise SystemExit(bool(fails))

@@ -1355,17 +1355,6 @@ class AcpAdapter:
                 # opened or resumed. Prompting anyway would start work that is
                 # already over its time; the Turn ends here with what it has,
                 # which is nothing.
-                if ctx.room_context is not None and room_context.current(ctx)[0] is None:
-                    # Expiration can happen during initialize/load/set-mode.
-                    # A fresh Session avoids retaining older partial context
-                    # even when this prompt correctly omits the expired block.
-                    session_id = await client.new_session(
-                        cwd=session_cwd, meta=destination_meta(ctx)
-                    )
-                    if mode:
-                        await client.set_session_mode(session_id, mode)
-                    if store is not None:
-                        store.forget(key)
                 if not live.begin(session_id):
                     return TurnResult(stop_reason="cancelled", text="")
                 # Read here, not at the top of the Turn: what may be sent is
@@ -1374,6 +1363,22 @@ class AcpAdapter:
                 # is said out loud before the prompt goes, so the room learns it
                 # while the agent is still working rather than afterwards.
                 blocks, problems = prompt_blocks(ctx, agent, att.max_bytes())
+                packet, availability = room_context.current(ctx)
+                if ctx.room_context is not None and packet is None:
+                    # Attachment/block preparation can cross expiration after
+                    # loading a Session or materializing its context block.
+                    # Discard that prepared data and the previous Session;
+                    # keep the actual ask and already-read attachment bytes.
+                    blocks = room_context.omit_prepared(blocks, availability)
+                    if store is not None:
+                        store.forget(key)
+                    session_id = await client.new_session(
+                        cwd=session_cwd, meta=destination_meta(ctx)
+                    )
+                    if mode:
+                        await client.set_session_mode(session_id, mode)
+                    if not live.begin(session_id):
+                        return TurnResult(stop_reason="cancelled", text="")
                 if problems:
                     queue.put_nowait(Notice(text=unread_notice(problems, agent)))
                 return await client.prompt(session_id, blocks)

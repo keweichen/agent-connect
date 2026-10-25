@@ -65,7 +65,22 @@ def preamble(ctx) -> str:
     packet, reason = current(ctx)
     if packet is not None:
         return text(packet)
-    if reason != "absent":
-        return ("[AG2 room context unavailable: " + reason + ". "
-                "Do not infer missing room facts or broaden history reads.]\n\n")
-    return ""
+    return unavailable(reason) if reason != "absent" else ""
+
+
+def unavailable(reason: str) -> str:
+    return ("[AG2 room context unavailable: " + reason + ". "
+            "Do not infer missing room facts or broaden history reads.]\n\n")
+
+
+def omit_prepared(blocks, reason: str):
+    """Drop prepared room data while preserving current ask and attachment bytes.
+
+    Preparation may cross expiration after a context block has been built.
+    Re-reading attachments would add IO and could change the prepared content;
+    only the reserved context block needs removal.
+    """
+    retained = [block for block in blocks
+                if ACP_META_KEY not in (block.get("_meta") or {})]
+    retained[0] = dict(retained[0], text=unavailable(reason) + retained[0]["text"])
+    return retained

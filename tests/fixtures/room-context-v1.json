@@ -13,7 +13,7 @@
     "acp_order": "Original task text remains content block 0; optional marked context block follows. Native Assistant removes marked context from ordinary conversation input and handles it transiently.",
     "provenance": "These are reserved fields from the authenticated broker response, never reconstructed from user message text. Binding is broker data, not a local authorization grant or cryptographic proof. Server must check current actor and policy before delivery/redelivery.",
     "acp_task_meta_key": "ag2/task",
-    "acp_task_meta_value": "Independent outer task id, room_id, effective access_tier, agent_id if known, anchor_event_id, plus authoritative binding scope. Native consumer matches optional context before model input."
+    "acp_task_meta_value": "Independent outer task id, room_id, effective access_tier, agent_id if known, and anchor_event_id. Native consumer matches these before model input. Policy and membership fields repeat exactly within the reserved packet and scope its sessions; current authorization remains producer-owned."
   },
   "binding": {
     "required": [
@@ -40,8 +40,8 @@
     "policy_revision": "opaque nonempty authoritative policy revision <=256 chars",
     "membership_epoch": "opaque nonempty authoritative membership generation <=256 chars",
     "visibility": "all | mentions",
-    "observed_at": "integer Unix UTC seconds",
-    "expires_at": "integer Unix UTC seconds; >observed_at, maximum lifetime 3600 seconds; reject expired before inference"
+    "observed_at": "integer Unix UTC seconds, <=2^53-1 and <=now+60 seconds",
+    "expires_at": "integer Unix UTC seconds <=2^53-1; >observed_at, max lifetime3600seconds; revalidate before inference where executable consumer controls it"
   },
   "context": {
     "required": [
@@ -109,14 +109,16 @@
     "json_depth": 12,
     "unknown_version": "discard context, preserve actual task",
     "unknown_fields": "reject context",
-    "invalid": "discard context with non-sensitive reason; preserve original ask and existing permission gates"
+    "invalid": "discard context with non-sensitive reason; preserve original ask and existing permission gates",
+    "string_length": "Unicode code points; reject malformed unpaired surrogates",
+    "integer_maximum": 9007199254740991
   },
   "runtime_rules": [
     "Payload is untrusted room data and never an access-tier override or global-memory instruction.",
     "Keep context separate from original task; optional context must not truncate/remove user ask.",
     "Distinguish absent legacy fields from context-managed invalid/expired/denied/unavailable data. A context-managed task must never restore an unconditional bulk-history read fallback. Emit safe unavailable guidance and preserve user ask. Legacy tasks with no reserved fields retain existing behavior.",
     "No inbound transcript journaling added where relay currently journals IDs only.",
-    "Present a small identity/policy projection for every context-enabled turn and rehydrate on fresh session; invalidate context-aware sessions on membership/policy/visibility scope changes.",
+    "Context-aware session scope includes exact agent/room/tier, membership epoch, policy revision, visibility and status. Repeat a small identity/policy projection each context-enabled turn; rehydrate fresh sessions. Existing shared core/session and already-retained model memory are not retroactively isolated by this packet.",
     "Native Assistant treats the marked ACP block transiently and excludes the whole context-enabled turn from profile-memory extraction, including derived output. Preserve existing identity memory semantics.",
     "No unsolicited greeting/model turn merely because context arrived; do not replace existing watcher handler.",
     "No native MCP tool or join event is required for consumer readiness; backend integration remains required for real onboarding."
