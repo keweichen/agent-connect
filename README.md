@@ -988,8 +988,8 @@ metadata. Each poll identifies the receiving consumer even if a credential is
 shared or its installation changed since the last heartbeat. This declares v1
 format consumption; current history authorization and policy filtering remain
 the producer's responsibility. Generic Relay Client consumers keep their existing
-wait-only polls unless they explicitly opt in to this capability. The [backend
-owner confirmed](https://to.ag2.space/#/!pucECkNVvMZAjGwunC:ag2.space/$vCr2GVBCcxKra87rF8a-1QE1Ke1LOTOqzHOo5Jd8pic?via=ag2.space)
+wait-only polls unless they explicitly opt in to this capability. The backend
+owner confirmed (see [backend PR #2930](https://github.com/ag2-space/ag2space-backend/pull/2930))
 comma-separated and repeated capability parsing at backend dev `437d52bb` plus
 PR #2930 `ea076303`, citing `taskstate.poll_proves_contract`,
 `room_context.poll_wants` and parser/real-GET tests. Sutando can use
