@@ -33,6 +33,17 @@ Adapters receive bounded, explicitly framed room data before the unchanged
 current prompt. This framing expresses provenance; it is not an authorization
 mechanism or a guarantee against model instruction-following mistakes.
 
+Framing instructs the agent to use the briefing first and avoid an extra context
+read when it is sufficient. Available MCP tools remain appropriate for a
+specific missing or fresh permitted fact or a requested action, using the same
+acting identity and originating room under current policy and normal permission
+checks. This does not permit automatic bulk replacement of missing context,
+reads of denied sections, or identity/credential switching to bypass a denial.
+If the needed information is unavailable or denied, the agent should state the
+limitation and ask. This guidance neither installs tools nor enforces their use;
+the backend must authorize every read and action. Tests verify what reaches the
+adapter, not the reasoning behavior of an arbitrary connected model.
+
 This consumer support does not enable automatic context delivery. Backend
 policy enforcement and real invite/join-to-response verification are required
 before rollout. Shipping also requires publishing the corresponding Relay

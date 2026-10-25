@@ -33,6 +33,19 @@ def check(cond, label):
     fails += not cond
 
 
+def carries_tool_guidance(text):
+    # Consumer-input contract, not a claim about a model's subsequent tool calls.
+    return all(clause in text for clause in (
+        "if it is sufficient, answer without additional context reads",
+        "specific missing or fresh permitted fact",
+        "as the same agent in the originating room",
+        "subject to current policy and normal permission checks",
+        "Do not automatically fetch bulk history or documents",
+        "Never retrieve denied sections or switch identity or credentials",
+        "unavailable or denied, state the limitation",
+    ))
+
+
 def parsed(raw):
     return parse_task(raw)
 
@@ -135,6 +148,8 @@ async def main():
         check(len(cli.prompts) == 2 and all("README_SENTINEL" in p and "HISTORY_SENTINEL" in p
               and p.endswith(base["task"]) for p in cli.prompts),
               "every one-shot turn receives context and unchanged current ask")
+        check(all(carries_tool_guidance(p) for p in cli.prompts),
+              "one-shot input carries briefing-first and bounded targeted-tool guidance")
         broker.on("GET", "/v1/tasks", json={"tasks": [base]})
         client.poll_once()
         check(client.tasks.empty(), "duplicate in-flight relay delivery does not trigger another turn")
@@ -176,6 +191,8 @@ async def main():
             check(("README_SENTINEL" in blocks[1]["text"]) == (raw["room_context"]["status"] == "partial")
                   and "ag2/room_context" in blocks[1]["_meta"],
                   "stdio ACP carries separately marked context on every turn")
+            check(carries_tool_guidance(blocks[1]["text"]),
+                  "stdio ACP input keeps targeted reads available under the same denial boundaries")
         check("session/load" in reports[1]["methods"], "same policy room resumes after Adapter restart")
         check("session/load" not in reports[2]["methods"], "different room cannot reuse context session")
         check("session/load" not in reports[3]["methods"], "changed policy rotates context-aware session")
@@ -200,6 +217,8 @@ async def main():
                 check(len(invalid["prompts"][0]["prompt"]) == 1
                       and invalid["prompts"][0]["prompt"][0]["text"].endswith(raw["task"]),
                       "invalid context preserves actual ask without supplying historical contents")
+                check(carries_tool_guidance(invalid["prompts"][0]["prompt"][0]["text"]),
+                      "managed-invalid input preserves bounded targeted-tool guidance")
 
         # Advance validation time after the Session has opened, without a
         # wall-clock sleep or a paid model call.

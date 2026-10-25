@@ -963,6 +963,18 @@ store inbound context or task bodies; after restart, the broker must redeliver
 and reauthorize context. Policy changes after a Task is delivered cannot be
 validated locally without a new authoritative backend signal.
 
+The delivered guidance tells the agent to use the briefing first and answer
+without additional context reads when it suffices. For a specific missing or
+fresh permitted fact, or a requested action, it may use available MCP tools as
+the same agent in the originating room under current policy and normal
+permission checks. It must not automatically replace unavailable context with
+bulk history, retrieve denied sections, or switch identity or credentials to
+bypass a restriction. If the needed information is unavailable or denied, it
+should state the limitation and ask. This is model guidance, not a tool-call
+gate; actual reads and actions still require backend authorization. These
+changes do not install MCP tools in the connected agent. Prompt-delivery tests
+do not prove arbitrary models follow the guidance.
+
 The Worker declares `room-context-v1` in each authenticated task poll using the
 existing scalar `capabilities=room-context-v1` query field, and in heartbeat
 metadata. Each poll identifies the receiving consumer even if a credential is
@@ -970,7 +982,11 @@ shared or its installation changed since the last heartbeat. This declares v1
 format consumption; current history authorization and policy filtering remain
 the producer's responsibility. Generic Relay Client consumers keep their existing
 wait-only polls unless they explicitly opt in to this capability. Multiple-value
-poll encoding is outside this contract.
+poll encoding is outside this contract. The [backend review of MCP PR #111](
+https://github.com/ag2-space/ag2space-mcp/pull/111#pullrequestreview-5641584174)
+reports support for comma-separated or repeated capabilities, but its parser and
+tests still need source verification before selecting Sutando's combined
+voice-and-context poll encoding.
 
 The consumer contract is proposed and requires backend integration before
 activation. This source change prepares Relay Client 0.1.2 and Worker 0.2.2;
