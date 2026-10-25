@@ -113,10 +113,18 @@ async def main():
         broker.on("GET", "/v1/tasks", json={"tasks": [base]})
         broker.on("POST", "/v1/tasks/*/ack", json={"ok": True})
         broker.on("POST", "/v1/heartbeat", json={"ok": True})
-        client = RelayClient(TokenSource(token=broker.url + "|synthetic-secret"),
-                             tmp / "relay", singleton=False)
+        client = from_env(tmp, {"AGENT_CONNECT_TOKEN": broker.url + "|synthetic-secret"},
+                          singleton=False, poll_wait=7)
         client.prepare(); client.poll_once()
         task = client.tasks.get_nowait()
+        from urllib.parse import parse_qs
+        outgoing = broker.took("GET", "/v1/tasks")[0]
+        check(parse_qs(outgoing.query) == {"wait": ["7"], "capabilities": ["room-context-v1"]},
+              "Worker opts in on its actual outgoing HTTP task poll")
+        check(outgoing.header("Authorization") == "Bearer synthetic-secret",
+              "Worker capability proof preserves authenticated poll")
+        check("room-context-v1" in broker.took("POST", "/v1/heartbeat")[0].json["capabilities"],
+              "Worker also retains its heartbeat capability declaration")
         check(task.room_context == packet, "localhost HTTP response preserves typed context")
         journal = client.layout.journal_path.read_text()
         check("README_SENTINEL" not in journal and "CURRENT_ASK" not in journal,

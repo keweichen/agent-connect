@@ -11,6 +11,13 @@ packet cannot consume the current message's existing text budget. Absence is
 compatible with old brokers. Unsupported or mismatched context is unavailable,
 not a reason to invent room facts or broaden a read.
 
+Each capable Worker's authenticated poll declares the known scalar
+`capabilities=room-context-v1` through the existing task-poll field. A heartbeat
+alone can be stale after a consumer change or come from a different process
+sharing the credential. Generic Relay Client users remain unadvertised until
+explicit opt-in; format support is separate from producer authorization. The
+heartbeat array is not serialized into a guessed multiple-value query format.
+
 Each Turn carries its own packet. A "sent once" cache cannot establish that the
 current Local Agent Session received it: the Session may be new, retired,
 compacted, or restored after a Worker restart. A changed membership or policy

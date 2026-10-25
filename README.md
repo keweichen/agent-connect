@@ -963,9 +963,14 @@ store inbound context or task bodies; after restart, the broker must redeliver
 and reauthorize context. Policy changes after a Task is delivered cannot be
 validated locally without a new authoritative backend signal.
 
-The Worker advertises `room-context-v1`: it consumes v1 packets, without
-claiming independent history authorization, memory isolation or guaranteed
-backend refresh. Generic Relay Client consumers do not advertise this by default.
+The Worker declares `room-context-v1` in each authenticated task poll using the
+existing scalar `capabilities=room-context-v1` query field, and in heartbeat
+metadata. Each poll identifies the receiving consumer even if a credential is
+shared or its installation changed since the last heartbeat. This declares v1
+format consumption; current history authorization and policy filtering remain
+the producer's responsibility. Generic Relay Client consumers keep their existing
+wait-only polls unless they explicitly opt in to this capability. Multiple-value
+poll encoding is outside this contract.
 
 The consumer contract is proposed and requires backend integration before
 activation. This source change prepares Relay Client 0.1.2 and Worker 0.2.2;

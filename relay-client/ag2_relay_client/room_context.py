@@ -16,6 +16,7 @@ from typing import Any, Mapping, Optional, Tuple
 MAX_PAYLOAD_BYTES = 32768
 MAX_BINDING_BYTES = 8192
 MAX_ID = 1024
+ROOM_CONTEXT_CAPABILITY = "room-context-v1"
 ACP_META_KEY = "ag2/room_context"
 _BINDING = frozenset((
     "schema_version", "context_id", "agent_id", "room_id", "task_id",

@@ -5,6 +5,8 @@
   "transport": {
     "payload_field": "room_context",
     "binding_field": "room_context_binding",
+    "capability": "room-context-v1",
+    "capability_advertisement": "On existing relay GET /v1/tasks, a compatible caller declares capabilities=room-context-v1 as a single scalar query value. This is format support, never authorization. Do not infer support from a User-Agent or a stale shared-credential heartbeat. Sutando retains its established voice-outcome-v1 scalar poll proof and advertises room context in the heartbeat array; per-poll combination with voice requires an authoritative producer-parser contract before activation. No CSV or repeated-key encoding is assumed.",
     "acp_content_meta_key": "ag2/room_context",
     "acp_content_meta_value": {
       "binding": "validated room_context_binding",

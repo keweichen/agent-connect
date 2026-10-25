@@ -76,6 +76,16 @@ the message sender is never used as the actor. Consumers must revalidate with
 Room context does not grant authorization, initiate reads or persist inbound
 transcripts. The journal remains IDs and outbound pending results only.
 
+A consumer which supplies context to its Local Agent explicitly includes
+`ROOM_CONTEXT_CAPABILITY` (`room-context-v1`) in the client's `capabilities`
+constructor argument. That adds the existing scalar
+`capabilities=room-context-v1` field to each `GET /v1/tasks` alongside `wait`,
+and retains the heartbeat declaration. The generic default stays wait-only.
+Only this known scalar is encoded; the heartbeat's full list is not converted
+to an unestablished multiple-value poll format. The declaration grants no
+history access or execution tier; the authoritative producer still filters
+and authorizes each delivery.
+
 All of it crosses **as data**. This library maps none of it to a decision: the
 tier is an attestation and not a permission, the interaction type has no
 whitelist here, and an unknown field on the wire is ignored rather than fatal —
