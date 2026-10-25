@@ -1362,6 +1362,8 @@ class AcpAdapter:
                     session_id = await client.new_session(
                         cwd=session_cwd, meta=destination_meta(ctx)
                     )
+                    if mode:
+                        await client.set_session_mode(session_id, mode)
                     if store is not None:
                         store.forget(key)
                 if not live.begin(session_id):

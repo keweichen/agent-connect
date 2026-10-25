@@ -193,6 +193,39 @@ async def main():
                       and invalid["prompts"][0]["prompt"][0]["text"].endswith(raw["task"]),
                       "invalid context preserves actual ask without supplying historical contents")
 
+        # Advance validation time after the Session has opened, without a
+        # wall-clock sleep or a paid model call.
+        from unittest.mock import patch
+        from ag2_relay_client.room_context import RoomContext
+        expiry_raw = wire("startup-expiry")
+        original_current = RoomContext.current
+        calls = 0
+        def expire_during_startup(self, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls >= 4:
+                kwargs["now"] = self.binding["expires_at"] + 1
+            return original_current(self, **kwargs)
+        expiry_script = json.loads(script.read_text())
+        expiry_script["sessionPrefix"] = "expiry-session"
+        script.write_text(json.dumps(expiry_script))
+        report = tmp / "startup-expiry.json"
+        os.environ["FAKE_ACP_REPORT"] = str(report)
+        try:
+            with patch.object(RoomContext, "current", expire_during_startup):
+                await handle_one(parsed(expiry_raw), AcpAdapter(
+                    command=[sys.executable, str(_bootstrap.ROOT / "tests/fake_acp_agent.py"), str(script)],
+                    mode="fixture-mode", store=SessionStore(store)), str(tmp))
+        finally:
+            os.environ.pop("FAKE_ACP_REPORT", None)
+        expired = json.loads(report.read_text())
+        prompt = expired["prompts"][0]
+        check(len(expired["sessions"]) == 2 and len(prompt["prompt"]) == 1
+              and "README_SENTINEL" not in prompt["prompt"][0]["text"],
+              "expiry during startup replaces Session and omits stale room data")
+        check(expired["modes"][-1]["sessionId"] == prompt["sessionId"],
+              "expiry replacement preserves configured ACP mode")
+
 asyncio.run(main())
 print("\n" + ("PASS — room context" if not fails else f"FAIL — {fails} assertions"))
 raise SystemExit(bool(fails))
