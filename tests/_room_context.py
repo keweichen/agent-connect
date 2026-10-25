@@ -14,7 +14,7 @@ def wire(task_id="context-task", room="!opaque-room", tier="owner", **over):
     }
     context = dict(binding, status="partial",
                    coverage={"completeness": "unknown", "truncated": False},
-                   room={"name": "Synthetic project", "topic": "context fixture"},
+                   room={"name": "Synthetic project", "topic": "context fixture", "category": "Research"},
                    readme={"text": "README_SENTINEL: release uses amber labels.",
                            "content_hash": "hash-one", "truncated": False},
                    members=[{"user_id": "@alice:example.test", "display_name": "Alice"}],

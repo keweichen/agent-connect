@@ -39,7 +39,8 @@
     },
     "room": {
       "name": "Synthetic project",
-      "topic": "context fixture"
+      "topic": "context fixture",
+      "category": "Research"
     },
     "readme": {
       "text": "README_SENTINEL: release uses amber labels.",

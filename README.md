@@ -948,6 +948,13 @@ Agent. Optional `AGENT_CONNECT_AGENT_ID` adds an independent exact actor check;
 it must name the Agent Identity, never the sender. Room data cannot grant an
 Access Tier or change the Sandbox.
 
+The room card accepts optional `name`, `topic` and `category`. Category is a
+string of at most 256 Unicode code points and is preserved exactly without
+trimming or coercion; other unknown room fields remain invalid. During this
+pre-activation contract alignment, the producer must omit category for consumers
+without updated support. The existing `room-context-v1` capability alone cannot
+distinguish earlier strict consumers from this extension.
+
 ACP receives the current ask as block zero and room data as a separately marked
 block (`_meta["ag2/room_context"]`). A supporting ACP Agent can exclude that
 block from profile-memory extraction. Text-only adapters receive explicitly

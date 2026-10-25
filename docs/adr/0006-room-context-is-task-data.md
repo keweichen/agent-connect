@@ -11,6 +11,12 @@ packet cannot consume the current message's existing text budget. Absence is
 compatible with old brokers. Unsupported or mismatched context is unavailable,
 not a reason to invent room facts or broaden a read.
 
+The room card's optional `category` is a string of at most 256 Unicode code
+points, accepted without trimming or coercion alongside `name` and `topic`.
+Other unknown fields remain invalid. This is a pre-activation contract update:
+the producer must omit category for consumers without the updated support, as
+the existing v1 capability does not distinguish earlier strict validators.
+
 Each capable Worker's authenticated poll declares the known scalar
 `capabilities=room-context-v1` through the existing task-poll field. A heartbeat
 alone can be stale after a consumer change or come from a different process

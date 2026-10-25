@@ -24,6 +24,21 @@ def packet(value):
     return parse_task(value).room_context
 
 check(packet(raw) is not None, "valid v1 packet parses without dependencies")
+for category in ("", "Research", "  Research  ", "a" * 256, "🦊" * 256, "e\u0301" * 128):
+    changed = copy.deepcopy(raw); changed["room_context"]["room"]["category"] = category
+    accepted = packet(changed)
+    check(accepted is not None and accepted.context["room"]["category"] == category,
+          "optional category preserves exact Unicode/code-point boundary: " + repr(category[:16]))
+changed = copy.deepcopy(raw); changed["room_context"]["room"].pop("category", None)
+check(packet(changed) is not None and "category" not in packet(changed).context["room"],
+      "category may be omitted for older consumers")
+for category in (None, True, 1, [], {}, "a" * 257, "🦊" * 257, "a" * 256 + " ", "\ud800"):
+    changed = copy.deepcopy(raw); changed["room_context"]["room"]["category"] = category
+    rejected = parse_task(changed)
+    check(rejected.room_context is None and rejected.body == raw["task"],
+          "invalid/oversized category drops context without trimming or coercion: " + repr(category)[:32])
+changed = copy.deepcopy(raw); changed["room_context"]["room"]["category_extra"] = "Research"
+check(packet(changed) is None, "other unknown room fields remain rejected")
 for key in ("room_context_binding", "room_context"):
     for bad in (None, [], "fake", 1, True):
         changed = copy.deepcopy(raw); changed[key] = bad

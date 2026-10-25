@@ -2,6 +2,7 @@
   "name": "AG2 room context consumer contract",
   "schema_version": 1,
   "state": "proposed; requires authoritative backend implementation before activation",
+  "pre_activation_compatibility": "Optional room.category requires updated consumer support. A producer must omit category for a consumer without that support; the v1 capability alone does not distinguish earlier strict consumers. Never trim or coerce an invalid category to make a packet pass.",
   "transport": {
     "payload_field": "room_context",
     "binding_field": "room_context_binding",
@@ -67,7 +68,8 @@
     "status": "partial | unavailable | denied; partial explicitly does not claim atomic snapshot or complete thread",
     "room": {
       "name": "optional string <=512 chars",
-      "topic": "optional string <=2048 chars"
+      "topic": "optional string <=2048 chars",
+      "category": "optional string <=256 Unicode code points; preserve exactly without trimming or coercion"
     },
     "readme": {
       "text": "string <=8192 chars",

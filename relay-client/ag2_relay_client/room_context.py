@@ -163,9 +163,9 @@ def parse_room_context(binding: Any, context: Any, *, task_id: str, room_id: str
         return None, "denied_content"
     if "room" in context:
         room = context["room"]
-        if (not _object(room, (), {"name", "topic"})
+        if (not _object(room, (), {"name", "topic", "category"})
                 or any(not _string(room[k], cap, nonempty=False)
-                       for k, cap in (("name", 512), ("topic", 2048)) if k in room)):
+                       for k, cap in (("name", 512), ("topic", 2048), ("category", 256)) if k in room)):
             return None, "invalid_room"
     if "readme" in context:
         readme = context["readme"]
