@@ -66,7 +66,15 @@ envelope carries what the broker attests about the sender — `user_id`,
 `sender_name`, `room_members`, `room_member_count`, `reply_to_event`,
 `reply_to_me`, `reply_to_sender`, `addressed_to`, `source_message_id`,
 `thread_root`, `source_room_id`, `platform_card`, `attempt`. Plus
-`attachments`, which the media stage fills.
+`attachments`, which the media stage fills. Optional `room_context` is a typed,
+immutable `RoomContext`, with `room_context_reason` reporting availability.
+Its reserved wire fields `room_context_binding` and `room_context` are strictly
+shape-, size-, expiry- and scope-checked independently from the task body.
+`parse_task(..., agent_id=...)` optionally checks the configured acting identity;
+the message sender is never used as the actor. Consumers must revalidate with
+`packet.current(...)` against their effective tier immediately before inference.
+Room context does not grant authorization, initiate reads or persist inbound
+transcripts. The journal remains IDs and outbound pending results only.
 
 All of it crosses **as data**. This library maps none of it to a decision: the
 tier is an attestation and not a permission, the interaction type has no

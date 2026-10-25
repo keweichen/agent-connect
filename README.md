@@ -812,6 +812,7 @@ table.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `AGENT_CONNECT_CONFIG` | the config file to read (see the section above). The `--config` flag wins over it | `~/.agent-connect/config.env`, if it exists |
+| `AGENT_CONNECT_AGENT_ID` | Optional exact Matrix ID of this Worker's Agent Identity; independently rejects context for a different actor. Grants no permissions. | unset |
 | `AGENT_CONNECT_TOKEN` | your agent identity's relay token, from the Agent Portal. It is a combined `<gateway-url>\|<secret>` credential: the gateway travels inside it, and there is no default to fall back on, so a bare secret needs `REMOTE_TASK_URL` beside it. Without a token the worker refuses to start, because it would have no way of being given any work | *(required)* |
 | `AGENT_CONNECT_ADAPTER` | which adapter runs the task: `codex`, `ollama`, `omnigent`, `cline`, `kilo`, `acp` | *(required)* |
 | `AGENT_CONNECT_REPO` | the working directory the agent operates in. Created for you when it is the default; a path under `~/Documents`, `~/Desktop` or `~/Downloads` is warned about, because macOS privacy protection turns agent file operations there into an unexplained "operation not permitted" | `~/agents` |
@@ -937,6 +938,43 @@ The framework is agent-agnostic; the relay client + onboarding + access-tiers ar
 client (workspace ADR 0001), so it long-polls the gateway itself — there is no
 second process to start. From a checkout of this repo, `./run-agent.sh` is the
 same single process with a pidfile that clears the last one.
+
+## Broker-supplied room context
+
+A capable broker can attach bounded, policy-filtered room metadata, README and
+eligible recent messages to each Task. The Worker validates the version,
+expiry and exact task/room/tier/event binding before passing it to the Local
+Agent. Optional `AGENT_CONNECT_AGENT_ID` adds an independent exact actor check;
+it must name the Agent Identity, never the sender. Room data cannot grant an
+Access Tier or change the Sandbox.
+
+ACP receives the current ask as block zero and room data as a separately marked
+block (`_meta["ag2/room_context"]`). A supporting ACP Agent can exclude that
+block from profile-memory extraction. Text-only adapters receive explicitly
+framed room data followed by the unchanged current ask. Every Turn receives
+its packet, including fresh or resumed Sessions. Context-aware ACP Sessions
+rotate when membership, policy or visibility changes; legacy Tasks retain the
+existing room/tier Session behavior.
+
+Context can be partial, denied or unavailable. Missing/invalid context never
+means the room is empty, and does not authorize broader history reads. This
+Worker does not fetch room history itself. The ID-only relay journal does not
+store inbound context or task bodies; after restart, the broker must redeliver
+and reauthorize context. Policy changes after a Task is delivered cannot be
+validated locally without a new authoritative backend signal.
+
+The Worker advertises `room-context-v1`: it consumes v1 packets, without
+claiming independent history authorization, memory isolation or guaranteed
+backend refresh. Generic Relay Client consumers do not advertise this by default.
+
+The consumer contract is proposed and requires backend integration before
+activation. This source change prepares Relay Client 0.1.2 and Worker 0.2.2;
+Relay Client 0.1.2 must be published first, before installing/releasing the
+Worker. No package publication is performed by these changes. To test both
+source distributions locally, install `-e relay-client` before `-e .`. Local synthetic relay/ACP tests do not establish real room join,
+history authorization or model-answer success. See
+[ADR 0006](docs/adr/0006-room-context-is-task-data.md) and the
+[shared contract](tests/fixtures/room-context-v1.json).
 
 ## Tests
 

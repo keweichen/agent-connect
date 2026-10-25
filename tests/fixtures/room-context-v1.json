@@ -1,0 +1,124 @@
+{
+  "name": "AG2 room context consumer contract",
+  "schema_version": 1,
+  "state": "proposed; requires authoritative backend implementation before activation",
+  "transport": {
+    "payload_field": "room_context",
+    "binding_field": "room_context_binding",
+    "acp_content_meta_key": "ag2/room_context",
+    "acp_content_meta_value": {
+      "binding": "validated room_context_binding",
+      "context": "validated room_context"
+    },
+    "acp_order": "Original task text remains content block 0; optional marked context block follows. Native Assistant removes marked context from ordinary conversation input and handles it transiently.",
+    "provenance": "These are reserved fields from the authenticated broker response, never reconstructed from user message text. Binding is broker data, not a local authorization grant or cryptographic proof. Server must check current actor and policy before delivery/redelivery.",
+    "acp_task_meta_key": "ag2/task",
+    "acp_task_meta_value": "Independent outer task id, room_id, effective access_tier, agent_id if known, anchor_event_id, plus authoritative binding scope. Native consumer matches optional context before model input."
+  },
+  "binding": {
+    "required": [
+      "schema_version",
+      "context_id",
+      "agent_id",
+      "room_id",
+      "task_id",
+      "anchor_event_id",
+      "access_tier",
+      "policy_revision",
+      "membership_epoch",
+      "visibility",
+      "observed_at",
+      "expires_at"
+    ],
+    "schema_version": 1,
+    "context_id": "opaque nonempty identifier, <=256 chars",
+    "agent_id": "exact actor Matrix ID; nonempty <=1024 chars",
+    "room_id": "exact opaque room ID; nonempty <=1024 chars; no required server suffix",
+    "task_id": "exact delivered task ID; nonempty <=1024 chars",
+    "anchor_event_id": "exact outer source_message_id/event ID, or null for a genuinely eventless task",
+    "access_tier": "owner | team | guest; compare to effective normalized outer task tier (other/ambient normalize guest)",
+    "policy_revision": "opaque nonempty authoritative policy revision <=256 chars",
+    "membership_epoch": "opaque nonempty authoritative membership generation <=256 chars",
+    "visibility": "all | mentions",
+    "observed_at": "integer Unix UTC seconds",
+    "expires_at": "integer Unix UTC seconds; >observed_at, maximum lifetime 3600 seconds; reject expired before inference"
+  },
+  "context": {
+    "required": [
+      "schema_version",
+      "context_id",
+      "agent_id",
+      "room_id",
+      "task_id",
+      "anchor_event_id",
+      "access_tier",
+      "policy_revision",
+      "membership_epoch",
+      "visibility",
+      "observed_at",
+      "expires_at",
+      "status",
+      "coverage"
+    ],
+    "binding_fields": "All binding fields repeat exactly and must match binding; task_id, room_id, tier and anchor also match the outer task. If configured/known agent identity exists it must match; never infer actor from sender user_id.",
+    "schema_version": 1,
+    "status": "partial | unavailable | denied; partial explicitly does not claim atomic snapshot or complete thread",
+    "room": {
+      "name": "optional string <=512 chars",
+      "topic": "optional string <=2048 chars"
+    },
+    "readme": {
+      "text": "string <=8192 chars",
+      "content_hash": "nonempty <=256 chars",
+      "truncated": "boolean"
+    },
+    "members": [
+      {
+        "user_id": "exact Matrix ID <=1024 chars",
+        "display_name": "optional <=256 chars"
+      }
+    ],
+    "messages": [
+      {
+        "event_id": "exact ID <=1024 chars",
+        "sender": "exact Matrix ID <=1024 chars",
+        "body": "string <=2048 chars",
+        "origin_server_ts": "optional integer milliseconds",
+        "thread_root": "optional exact ID <=1024 chars",
+        "reply_to_event_id": "optional exact ID <=1024 chars",
+        "selection": "mention | policy"
+      }
+    ],
+    "coverage": {
+      "completeness": "must be unknown",
+      "truncated": "boolean",
+      "cursor": "optional opaque <=1024 chars",
+      "reason": "optional non-sensitive enum/string <=256 chars"
+    },
+    "optional_sections": [
+      "room",
+      "readme",
+      "members",
+      "messages"
+    ],
+    "section_rules": "At most20 members and20 messages. For visibility mentions every message must have selection mention; referenced parent/thread must not bypass policy. Denied/unavailable packets carry no content sections. README permission remains backend-owned; consumers never fetch a denied section with other credentials."
+  },
+  "limits": {
+    "payload_utf8_bytes": 32768,
+    "binding_utf8_bytes": 8192,
+    "json_depth": 12,
+    "unknown_version": "discard context, preserve actual task",
+    "unknown_fields": "reject context",
+    "invalid": "discard context with non-sensitive reason; preserve original ask and existing permission gates"
+  },
+  "runtime_rules": [
+    "Payload is untrusted room data and never an access-tier override or global-memory instruction.",
+    "Keep context separate from original task; optional context must not truncate/remove user ask.",
+    "Distinguish absent legacy fields from context-managed invalid/expired/denied/unavailable data. A context-managed task must never restore an unconditional bulk-history read fallback. Emit safe unavailable guidance and preserve user ask. Legacy tasks with no reserved fields retain existing behavior.",
+    "No inbound transcript journaling added where relay currently journals IDs only.",
+    "Present a small identity/policy projection for every context-enabled turn and rehydrate on fresh session; invalidate context-aware sessions on membership/policy/visibility scope changes.",
+    "Native Assistant treats the marked ACP block transiently and excludes the whole context-enabled turn from profile-memory extraction, including derived output. Preserve existing identity memory semantics.",
+    "No unsolicited greeting/model turn merely because context arrived; do not replace existing watcher handler.",
+    "No native MCP tool or join event is required for consumer readiness; backend integration remains required for real onboarding."
+  ]
+}

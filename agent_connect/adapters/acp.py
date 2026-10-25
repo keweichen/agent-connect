@@ -883,8 +883,17 @@ def prompt_blocks(
         passed.append(name)
     # The text block is built last and put first: it names what follows it, and
     # what follows it is only known once every attachment has been tried.
+    from .. import room_context
     text = preamble(ctx, passed, missing) + ctx.prompt
-    return [{"type": "text", "text": text}] + blocks, problems
+    # Current ask remains block zero. Mark context separately so a supporting
+    # ACP Agent can keep it out of conversation/profile-memory extraction.
+    ask = {"type": "text", "text": text, "_meta": room_context.task_meta(ctx)}
+    context_block = room_context.block(ctx)
+    if context_block is not None:
+        blocks.insert(0, context_block)
+    elif ctx.room_context_reason != "absent":
+        ask["text"] = preamble(ctx, passed, missing) + room_context.preamble(ctx) + ctx.prompt
+    return [ask] + blocks, problems
 
 
 def unread_notice(problems: Sequence[str], agent) -> str:
@@ -1204,7 +1213,12 @@ class AcpAdapter:
         policy = WorkingDirectoryPolicy(session_cwd)
         queue: asyncio.Queue = asyncio.Queue()
         settings = self.session_settings()
-        store = self.store() if settings.memory else None
+        from .. import room_context
+        packet, availability = room_context.current(ctx)
+        managed_unavailable = packet is None and availability != "absent"
+        # An invalid managed packet must not fall back into an old legacy
+        # Session that could still contain broader historical room material.
+        store = self.store() if settings.memory and not managed_unavailable else None
         key = ctx.session_key
 
         # Per-Turn, not per-Adapter: two rooms run their Turns concurrently and
@@ -1275,6 +1289,12 @@ class AcpAdapter:
         # even started: a retired or misplaced one is dropped here, and the room
         # hears about it whether or not the agent turns out to be reachable.
         record = store.get(key) if store is not None else None
+        if ctx.room_context is not None and room_context.current(ctx)[0] is None:
+            # An expired packet must not resume a Session which still contains
+            # the previously valid room material.
+            if store is not None:
+                store.forget(key)
+            record = None
         if record is not None:
             why = _why_unusable(record, session_cwd, settings)
             if why:
@@ -1335,6 +1355,15 @@ class AcpAdapter:
                 # opened or resumed. Prompting anyway would start work that is
                 # already over its time; the Turn ends here with what it has,
                 # which is nothing.
+                if ctx.room_context is not None and room_context.current(ctx)[0] is None:
+                    # Expiration can happen during initialize/load/set-mode.
+                    # A fresh Session avoids retaining older partial context
+                    # even when this prompt correctly omits the expired block.
+                    session_id = await client.new_session(
+                        cwd=session_cwd, meta=destination_meta(ctx)
+                    )
+                    if store is not None:
+                        store.forget(key)
                 if not live.begin(session_id):
                     return TurnResult(stop_reason="cancelled", text="")
                 # Read here, not at the top of the Turn: what may be sent is

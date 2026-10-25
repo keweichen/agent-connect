@@ -1,0 +1,33 @@
+# Room context is bounded task data
+
+Room context is supplied by the authoritative relay alongside a Task. The Worker
+does not read room history itself: membership, Agent Native context visibility,
+acting Agent Identity, and history availability belong to the service that can
+verify them. Room text cannot grant an Access Tier or alter a Sandbox.
+
+The context packet crosses the parser and Adapter boundary separately from the
+current prompt. It has an independent byte budget; an oversized or invalid
+packet cannot consume the current message's existing text budget. Absence is
+compatible with old brokers. Unsupported or mismatched context is unavailable,
+not a reason to invent room facts or broaden a read.
+
+Each Turn carries its own packet. A "sent once" cache cannot establish that the
+current Local Agent Session received it: the Session may be new, retired,
+compacted, or restored after a Worker restart. A changed membership or policy
+boundary must also stop reuse of a Session containing older context.
+
+The Relay Client journal continues to store IDs, rooms, and outbound pending
+results only. It does not persist inbound context or task bodies. After a
+restart, context arrives again with broker redelivery and is parsed again.
+
+ACP receives a separately marked context block, so consumers that support
+profile memory can exclude room material from profile extraction. Text-only
+Adapters receive bounded, explicitly framed room data before the unchanged
+current prompt. This framing expresses provenance; it is not an authorization
+mechanism or a guarantee against model instruction-following mistakes.
+
+This consumer support does not enable automatic context delivery. Backend
+policy enforcement and real invite/join-to-response verification are required
+before rollout. Shipping also requires publishing the corresponding Relay
+Client distribution before installing a Worker that depends on it; a source
+checkout test does not verify that a published package contains these changes.
